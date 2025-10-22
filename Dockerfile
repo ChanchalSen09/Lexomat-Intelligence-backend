@@ -23,4 +23,4 @@ COPY . .
 EXPOSE 8000
 
 # Run the app with Python (reads PORT at runtime)
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port $PORT"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0:$PORT"]
