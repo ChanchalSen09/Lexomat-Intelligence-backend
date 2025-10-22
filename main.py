@@ -90,7 +90,7 @@ async def get_model():
     if model is None:
         from sentence_transformers import SentenceTransformer
         logger.info("Loading embedding model...")
-        model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+        model = SentenceTransformer("all-MiniLM-L6-v2")
         logger.info("Model loaded successfully")
     return model
 
