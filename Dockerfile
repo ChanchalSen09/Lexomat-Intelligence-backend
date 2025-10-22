@@ -1,7 +1,6 @@
 # Use slim Python image
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
 # Install system dependencies
@@ -22,6 +21,5 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Use shell form CMD for environment variable expansion
-# Production-ready: no --reload, uses multiple workers
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 4
+# Correct CMD for Railway (shell form)
+CMD sh -c "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 4"
