@@ -51,28 +51,43 @@ async def startup_db_pool():
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE  # Only for testing
 
-    try:
-        pool = await asyncpg.create_pool(
-            dsn=db_url,
-            min_size=1,
-            max_size=5,
-            ssl=ssl_context,
-            command_timeout=60
-        )
-        # Test connection
-        async with pool.acquire() as conn:
-            await conn.fetchval("SELECT 1")
-        logger.info("Database pool created successfully")
-        return pool
-    except Exception as e:
-        logger.error(f"Failed to create database pool: {e}")
-        return None
+    max_retries = 5
+    retry_delay = 2  # seconds
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info(f"Database connection attempt {attempt}/{max_retries}")
+            pool = await asyncpg.create_pool(
+                dsn=db_url,
+                min_size=1,
+                max_size=5,
+                ssl=ssl_context,
+                command_timeout=60,
+                timeout=10  # Connection timeout
+            )
+            # Test connection
+            async with pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+            logger.info("Database pool created successfully")
+            return pool
+        except Exception as e:
+            logger.warning(f"Database connection attempt {attempt} failed: {e}")
+            if attempt < max_retries:
+                logger.info(f"Retrying in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
+            else:
+                logger.error(f"Failed to create database pool after {max_retries} attempts")
+                return None
 
 @app.on_event("startup")
 async def startup():
     global db_pool
     logger.info("Starting up... Initializing database pool")
     db_pool = await startup_db_pool()
+    if db_pool:
+        logger.info("Application startup complete with database")
+    else:
+        logger.warning("Application started without database connection")
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -110,11 +125,18 @@ async def get_embedding(text: str):
 # -------------------------------
 @app.get("/")
 async def health_check():
-    return {"status": "healthy", "message": "API running", "endpoints": ["/search"]}
+    db_status = "connected" if db_pool else "disconnected"
+    return {
+        "status": "healthy",
+        "message": "API running",
+        "database": db_status,
+        "endpoints": ["/search"]
+    }
 
 @app.get("/health")
 async def health():
     # Always return healthy to pass Railway health check
+    # Even if DB is not connected yet, the service is running
     return {"status": "healthy"}
 
 # -------------------------------
